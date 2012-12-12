@@ -127,6 +127,9 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 		try {
 			return Result.success(doLoad());
 		} catch (NoResultException nores) {
+			if (m_Chain == null)
+				throw new UnsupportedOperationException("If there is no chained loaer, doLoad() must return a result.");
+			
 			return null;
 		} catch (DataProviderException err) {
 			return Result.failure(err);
