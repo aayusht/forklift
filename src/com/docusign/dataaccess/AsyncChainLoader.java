@@ -4,8 +4,14 @@ import android.content.Context;
 import android.support.v4.content.AsyncTaskLoader;
 import android.support.v4.content.Loader;
 
-public abstract class AsyncChainLoader<T, E extends Throwable> extends AsyncTaskLoader<LoaderResult<T, E>> 
-															   implements Loader.OnLoadCompleteListener<LoaderResult<T, E>> {
+public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>> 
+															   implements Loader.OnLoadCompleteListener<Result<T>> {
+	
+	private static class NoResultException extends DataProviderException {
+		private static final long serialVersionUID = 2596920468208815208L;
+	}
+	
+	protected static final NoResultException NO_RESULT = new NoResultException(); 
 	
 	private static final int INITIALIZED 		= 0;
 	private static final int LOADING_SELF 		= INITIALIZED + 1;
@@ -13,11 +19,11 @@ public abstract class AsyncChainLoader<T, E extends Throwable> extends AsyncTask
 	@SuppressWarnings("unused")
 	private static final int ALL_LOADS_COMPLETE = LOADING_CHAIN + 1; // this should always be "last + 1"
 	
-	private LoaderResult<T, E> m_Data;
-	private Loader<LoaderResult<T, E>> m_Chain;
+	private Result<T> m_Data;
+	private Loader<Result<T>> m_Chain;
 	private int m_State;
 
-	public AsyncChainLoader(Context context, Loader<LoaderResult<T, E>> chain) {
+	public AsyncChainLoader(Context context, Loader<Result<T>> chain) {
 		super(context);
 		
 		m_Chain = chain;
@@ -62,58 +68,70 @@ public abstract class AsyncChainLoader<T, E extends Throwable> extends AsyncTask
 	}
 	
 	@Override
-	public void onCanceled(LoaderResult<T, E> data) {
+	public void onCanceled(Result<T> data) {
 		super.onCanceled(data);
 		// TODO: should we be resetting anything here? state, specifically?
 		releaseData(data);
 	}
 
 	@Override
-	public final void deliverResult(LoaderResult<T, E> data) {
+	public final void deliverResult(Result<T> data) {
 		if (isReset()) {
 			releaseData(data);
 		}
 		
-		LoaderResult<T, E> oldData = m_Data;
+		Result<T> oldData = m_Data;
 		m_Data = data;
 		
-		if (isStarted() && !isAbandoned())
+		// we don't deliver null data here because it's actually a null Result<T> object
+		// if the intent is to actually deliver "null" as a result, you can return Result.success(null)
+		if (isStarted() && !isAbandoned() && m_Data != null) {
 			super.deliverResult(m_Data);
-		
-		releaseData(oldData);
+			releaseData(oldData);
+		}
 		
 		performLoad();
 	}
 	
-	protected final void releaseData(LoaderResult<T, E> data) {
+	protected final void releaseData(Result<T> data) {
 		if (data != null)
 			onReleaseData(data);
 	}
 	
-	protected void onReleaseData(LoaderResult<T, E> data) {
+	protected void onReleaseData(Result<T> data) {
 		
 	}
 
 	@Override
-	public final void onLoadComplete(Loader<LoaderResult<T, E>> loader, LoaderResult<T, E> data) {
+	public final void onLoadComplete(Loader<Result<T>> loader, Result<T> data) {
 		if (loader != m_Chain)
 			throw new UnsupportedOperationException("ChainAsyncTaskLoader must only handle callbacks for its chained loader.");
 		
-		deliverResult(onFallbackDelivered(data));
+		try {
+			data = Result.success(onFallbackDelivered(data.get()));
+		} catch (NoResultException nores) {
+			data = null;
+		} catch (DataProviderException e) {
+			data = Result.failure(e);
+		}
+		
+		deliverResult(data);
 	}
 	
-	protected LoaderResult<T, E> onFallbackDelivered(LoaderResult<T, E> data) {
+	protected T onFallbackDelivered(T data) throws DataProviderException {
 		return data;
 	}
 	
-//	@Override
-//	public LoaderResult<T, E> loadInBackground() {
-//		try {
-//			return LoaderResult.success(doLoad());
-//		} catch (Exception err) {
-//			return LoaderResult.failure(err);
-//		}
-//	}
-//	
-//	public abstract T doLoad() throws E;
+	@Override
+	public Result<T> loadInBackground() {
+		try {
+			return Result.success(doLoad());
+		} catch (NoResultException nores) {
+			return null;
+		} catch (DataProviderException err) {
+			return Result.failure(err);
+		}
+	}
+	
+	public abstract T doLoad() throws DataProviderException;
 }
