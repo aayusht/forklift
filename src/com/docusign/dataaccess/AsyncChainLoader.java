@@ -4,7 +4,8 @@ import android.content.Context;
 import android.support.v4.content.AsyncTaskLoader;
 import android.support.v4.content.Loader;
 
-public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<T> implements Loader.OnLoadCompleteListener<T> {
+public abstract class AsyncChainLoader<T, E extends Throwable> extends AsyncTaskLoader<LoaderResult<T, E>> 
+															   implements Loader.OnLoadCompleteListener<LoaderResult<T, E>> {
 	
 	private static final int INITIALIZED 		= 0;
 	private static final int LOADING_SELF 		= INITIALIZED + 1;
@@ -12,16 +13,21 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<T> implements 
 	@SuppressWarnings("unused")
 	private static final int ALL_LOADS_COMPLETE = LOADING_CHAIN + 1; // this should always be "last + 1"
 	
-	private T m_Data;
-	private Loader<T> m_Chain;
+	private LoaderResult<T, E> m_Data;
+	private Loader<LoaderResult<T, E>> m_Chain;
 	private int m_State;
 
-	public AsyncChainLoader(Context context, Loader<T> chain) {
+	public AsyncChainLoader(Context context, Loader<LoaderResult<T, E>> chain) {
 		super(context);
 		
 		m_Chain = chain;
 		m_State = INITIALIZED;
 	}
+	
+	// TODO: wrap this somehow and make it work
+//	public AsyncChainLoader(Context context, Loader<T> chain) {
+//		super(context);
+//	}
 
 	@Override
 	protected void onReset() {
@@ -56,19 +62,19 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<T> implements 
 	}
 	
 	@Override
-	public void onCanceled(T data) {
+	public void onCanceled(LoaderResult<T, E> data) {
 		super.onCanceled(data);
 		// TODO: should we be resetting anything here? state, specifically?
 		releaseData(data);
 	}
 
 	@Override
-	public final void deliverResult(T data) {
+	public final void deliverResult(LoaderResult<T, E> data) {
 		if (isReset()) {
 			releaseData(data);
 		}
 		
-		T oldData = m_Data;
+		LoaderResult<T, E> oldData = m_Data;
 		m_Data = data;
 		
 		if (isStarted() && !isAbandoned())
@@ -79,20 +85,35 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<T> implements 
 		performLoad();
 	}
 	
-	protected final void releaseData(T data) {
+	protected final void releaseData(LoaderResult<T, E> data) {
 		if (data != null)
 			onReleaseData(data);
 	}
 	
-	protected void onReleaseData(T data) {
+	protected void onReleaseData(LoaderResult<T, E> data) {
 		
 	}
 
 	@Override
-	public final void onLoadComplete(Loader<T> loader, T data) {
+	public final void onLoadComplete(Loader<LoaderResult<T, E>> loader, LoaderResult<T, E> data) {
 		if (loader != m_Chain)
 			throw new UnsupportedOperationException("ChainAsyncTaskLoader must only handle callbacks for its chained loader.");
 		
-		deliverResult(data);
+		deliverResult(onFallbackDelivered(data));
 	}
+	
+	protected LoaderResult<T, E> onFallbackDelivered(LoaderResult<T, E> data) {
+		return data;
+	}
+	
+//	@Override
+//	public LoaderResult<T, E> loadInBackground() {
+//		try {
+//			return LoaderResult.success(doLoad());
+//		} catch (Exception err) {
+//			return LoaderResult.failure(err);
+//		}
+//	}
+//	
+//	public abstract T doLoad() throws E;
 }
