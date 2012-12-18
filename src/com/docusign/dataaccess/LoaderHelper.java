@@ -29,6 +29,7 @@ public class LoaderHelper<T> implements Loader.OnLoadCompleteListener<T> {
 	
 	public T getSync() {
 		synchronized (m_Lock) {
+			m_Loader.registerListener(0, this);
 			m_Loader.startLoading();
 			try {
 				m_Lock.wait();
