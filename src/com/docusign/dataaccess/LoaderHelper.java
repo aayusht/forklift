@@ -1,5 +1,6 @@
 package com.docusign.dataaccess;
 
+import android.support.v4.content.AsyncTaskLoader;
 import android.support.v4.content.Loader;
 
 public class LoaderHelper<T> implements Loader.OnLoadCompleteListener<T> {
@@ -10,8 +11,7 @@ public class LoaderHelper<T> implements Loader.OnLoadCompleteListener<T> {
 	
 	private Loader<T> m_Loader;
 	private T m_Data;
-	private final Object m_Lock = new Object();
-
+	
 	public LoaderHelper(Loader<T> loader) {
 		m_Loader = loader;
 	}
@@ -21,19 +21,22 @@ public class LoaderHelper<T> implements Loader.OnLoadCompleteListener<T> {
 		if (loader != m_Loader)
 			throw new UnsupportedOperationException("Cannot manage any but my own loader.");
 		
-		synchronized (m_Lock) {
-			m_Data = data;
-			m_Lock.notifyAll();
-		}
+		m_Data = data;
 	}
 	
+	@SuppressWarnings("unchecked")
 	public T getSync() {
-		synchronized (m_Lock) {
+		if (m_Loader instanceof AsyncTaskLoader<?>) {
+			T ret = ((AsyncTaskLoader<T>)m_Loader).loadInBackground();
+			if (ret == null && m_Loader instanceof AsyncChainLoader<?>) {
+				AsyncChainLoader<?> acl = (AsyncChainLoader<?>)m_Loader;
+				if (acl.getChainLoader() != null)
+					ret = (T)LoaderHelper.getSync(acl.getChainLoader());
+			}
+			return ret;
+		} else {
 			m_Loader.registerListener(0, this);
 			m_Loader.startLoading();
-			try {
-				m_Lock.wait();
-			} catch (InterruptedException ignored) { }
 			m_Loader.abandon();
 			return m_Data;
 		}

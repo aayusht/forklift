@@ -137,4 +137,8 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 	}
 	
 	public abstract T doLoad() throws DataProviderException;
+	
+	protected Loader<Result<T>> getChainLoader() {
+		return m_Chain;
+	}
 }
