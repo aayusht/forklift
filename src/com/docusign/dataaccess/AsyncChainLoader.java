@@ -28,6 +28,9 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 		
 		m_Chain = chain;
 		m_State = INITIALIZED;
+		
+		if (m_Chain != null)
+			m_Chain.registerListener(0, this);
 	}
 	
 	// TODO: wrap this somehow and make it work
@@ -41,6 +44,8 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 		releaseData(m_Data);
 		m_Data = null;
 		m_State = INITIALIZED;
+		if (m_Chain != null)
+			m_Chain.reset();
 	}
 
 	@Override
@@ -55,7 +60,6 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 		if (m_State < LOADING_SELF)
 			forceLoad();
 		else if (m_State < LOADING_CHAIN && m_Chain != null) {
-			m_Chain.registerListener(0, this);
 			m_Chain.startLoading();
 		}
 		
