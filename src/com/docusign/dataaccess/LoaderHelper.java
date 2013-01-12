@@ -5,8 +5,12 @@ import android.support.v4.content.Loader;
 
 public class LoaderHelper<T> implements Loader.OnLoadCompleteListener<T> {
 	
+	@SuppressWarnings("unchecked")
 	public static <T> T getSync(Loader<T> loader) {
-		return new LoaderHelper<T>(loader).getSync();
+		if (loader instanceof AsyncChainLoader<?>)
+			return (T)new AsyncChainLoader.AsyncChainLoaderHelper<T>((AsyncChainLoader<T>)loader).getSync();
+		else
+			return new LoaderHelper<T>(loader).getSync();
 	}
 	
 	private Loader<T> m_Loader;
@@ -24,16 +28,9 @@ public class LoaderHelper<T> implements Loader.OnLoadCompleteListener<T> {
 		m_Data = data;
 	}
 	
-	@SuppressWarnings("unchecked")
 	public T getSync() {
 		if (m_Loader instanceof AsyncTaskLoader<?>) {
-			T ret = ((AsyncTaskLoader<T>)m_Loader).loadInBackground();
-			if (ret == null && m_Loader instanceof AsyncChainLoader<?>) {
-				AsyncChainLoader<?> acl = (AsyncChainLoader<?>)m_Loader;
-				if (acl.getChainLoader() != null)
-					ret = (T)LoaderHelper.getSync(acl.getChainLoader());
-			}
-			return ret;
+			return ((AsyncTaskLoader<T>)m_Loader).loadInBackground();
 		} else {
 			m_Loader.registerListener(0, this);
 			m_Loader.startLoading();

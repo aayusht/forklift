@@ -7,6 +7,37 @@ import android.support.v4.content.Loader;
 public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>> 
 															   implements Loader.OnLoadCompleteListener<Result<T>> {
 	
+	public static class AsyncChainLoaderHelper<T> extends LoaderHelper<Result<T>> {
+
+		private AsyncChainLoader<T> m_Loader;
+		
+		public AsyncChainLoaderHelper(AsyncChainLoader<T> loader) {
+			super(loader);
+			m_Loader = loader;
+		}
+
+		public Result<T> getSync() {
+			T ret;
+			try {
+				ret = m_Loader.doLoad();
+				return Result.success(ret);
+			} catch (NoResultException e) {
+				if (m_Loader.getChainLoader() == null)
+					throw new UnsupportedOperationException("If there is no chained loader, doLoad() must return a result.");
+				
+				try {
+					ret = LoaderHelper.getSync(m_Loader.getChainLoader()).get();
+					m_Loader.onFallbackDelivered(ret);
+					return Result.success(ret);
+				} catch (DataProviderException chainEx) {
+					return Result.failure(chainEx);
+				}
+			} catch (DataProviderException e) {
+				return Result.failure(e);
+			}
+		}
+	}
+	
 	private static class NoResultException extends DataProviderException {
 		private static final long serialVersionUID = 2596920468208815208L;
 	}
@@ -132,7 +163,7 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 			return Result.success(doLoad());
 		} catch (NoResultException nores) {
 			if (m_Chain == null)
-				throw new UnsupportedOperationException("If there is no chained loaer, doLoad() must return a result.");
+				throw new UnsupportedOperationException("If there is no chained loader, doLoad() must return a result.");
 			
 			return null;
 		} catch (DataProviderException err) {
