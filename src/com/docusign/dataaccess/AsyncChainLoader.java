@@ -1,5 +1,7 @@
 package com.docusign.dataaccess;
 
+import java.util.ArrayList;
+
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.AsyncTask;
@@ -77,14 +79,17 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 	@SuppressWarnings("unused")
 	private static final int ALL_LOADS_COMPLETE = LOADING_CHAIN + 1; // this should always be "last + 1"
 	
+	private final Loader<Result<T>> m_Chain;
+	private final ArrayList<AsyncTask<?, ?, ?>> mFallbackDeliveredTasks;
 	private Result<T> m_Data;
-	private Loader<Result<T>> m_Chain;
 	private int m_State;
 
 	public AsyncChainLoader(Context context, Loader<Result<T>> chain) {
 		super(context);
 		
 		m_Chain = chain;
+		mFallbackDeliveredTasks = new ArrayList<AsyncTask<?, ?, ?>>();
+		
 		m_State = INITIALIZED;
 		
 		if (m_Chain != null)
@@ -100,10 +105,16 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 	protected void onReset() {
 		cancelLoad();
 		releaseData(m_Data);
+		
 		m_Data = null;
 		m_State = INITIALIZED;
+		
 		if (m_Chain != null)
 			m_Chain.reset();
+		
+		for (AsyncTask<?, ?, ?> task : mFallbackDeliveredTasks)
+			task.cancel(false);
+		mFallbackDeliveredTasks.clear();
 	}
 
 	@Override
