@@ -1,8 +1,13 @@
 package com.docusign.dataaccess;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
+import android.os.AsyncTask;
+import android.os.Build;
 import android.support.v4.content.AsyncTaskLoader;
 import android.support.v4.content.Loader;
+
+import com.docusign.dataaccess.Result.Type;
 
 public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>> 
 															   implements Loader.OnLoadCompleteListener<Result<T>> {
@@ -27,7 +32,7 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 				
 				try {
 					ret = LoaderHelper.getSync(m_Loader.getChainLoader()).get();
-					m_Loader.onFallbackDelivered(ret);
+					m_Loader.onFallbackDelivered(ret, null); // TODO: this doesn't understand PARTIAL!
 					return Result.success(ret);
 				} catch (DataProviderException chainEx) {
 					return Result.failure(chainEx);
@@ -35,6 +40,28 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 			} catch (DataProviderException e) {
 				return Result.failure(e);
 			}
+		}
+	}
+	
+	private class FallbackDeliveredAsyncTask extends AsyncTask<Result<T>, Void, Result<T>> {
+		@Override
+		protected Result<T> doInBackground(Result<T>... params) {
+			Result<T> data = (Result<T>)params[0];
+			
+			try {
+				data = new Result<T>(AsyncChainLoader.this.onFallbackDelivered(data.get(), data.getType()), null, data.getType());
+			} catch (NoResultException nores) {
+				data = null;
+			} catch (DataProviderException e) {
+				data = Result.failure(e);
+			}
+			
+			return data;
+		}
+
+		@Override
+		protected void onPostExecute(Result<T> result) {
+			AsyncChainLoader.this.deliverResult(result);
 		}
 	}
 	
@@ -137,23 +164,20 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 		
 	}
 
+	@SuppressLint("NewApi")
+	@SuppressWarnings("unchecked")
 	@Override
 	public final void onLoadComplete(Loader<Result<T>> loader, Result<T> data) {
 		if (loader != m_Chain)
 			throw new UnsupportedOperationException("ChainAsyncTaskLoader must only handle callbacks for its chained loader.");
 		
-		try {
-			data = Result.success(onFallbackDelivered(data.get()));
-		} catch (NoResultException nores) {
-			data = null;
-		} catch (DataProviderException e) {
-			data = Result.failure(e);
-		}
-		
-		deliverResult(data);
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB)
+			new FallbackDeliveredAsyncTask().execute(data);
+		else
+			new FallbackDeliveredAsyncTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, data);
 	}
 	
-	protected T onFallbackDelivered(T data) throws DataProviderException {
+	protected T onFallbackDelivered(T data, Type type) throws DataProviderException {
 		return data;
 	}
 	
