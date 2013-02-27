@@ -167,7 +167,7 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 	@Override
 	public final void deliverResult(Result<T> data) {
 		if (isReset()) {
-			releaseData(data);
+			return;
 		}
 		
 		Result<T> oldData = m_Data;
@@ -180,7 +180,8 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 			releaseData(oldData);
 		}
 		
-		performLoad();
+		if (data.getType() == Type.COMPLETE)
+			performLoad();
 	}
 	
 	protected final void releaseData(Result<T> data) {
