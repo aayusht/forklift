@@ -6,8 +6,10 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.AsyncTask;
 import android.os.Build;
+import android.os.SystemClock;
 import android.support.v4.content.AsyncTaskLoader;
 import android.support.v4.content.Loader;
+import android.util.Log;
 
 import com.docusign.dataaccess.Result.Type;
 
@@ -48,6 +50,9 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 	private class FallbackDeliveredAsyncTask extends AsyncTask<Result<T>, Void, Result<T>> {
 		@Override
 		protected Result<T> doInBackground(Result<T>... params) {
+			if (isCancelled())
+				return null;
+			
 			Result<T> data = (Result<T>)params[0];
 			
 			try {
@@ -62,8 +67,14 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 		}
 
 		@Override
+		protected void onCancelled(Result<T> result) {
+			removeTask(this);
+		}
+
+		@Override
 		protected void onPostExecute(Result<T> result) {
 			AsyncChainLoader.this.deliverResult(result);
+			removeTask(this);
 		}
 	}
 	
@@ -96,6 +107,13 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 			m_Chain.registerListener(0, this);
 	}
 	
+	private void removeTask(FallbackDeliveredAsyncTask task) {
+		synchronized (mFallbackDeliveredTasks) {
+			mFallbackDeliveredTasks.remove(task);
+			mFallbackDeliveredTasks.notifyAll();
+		}
+	}
+	
 	// TODO: wrap this somehow and make it work
 //	public AsyncChainLoader(Context context, Loader<T> chain) {
 //		super(context);
@@ -114,7 +132,6 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 		
 		for (AsyncTask<?, ?, ?> task : mFallbackDeliveredTasks)
 			task.cancel(false);
-		mFallbackDeliveredTasks.clear();
 	}
 
 	@Override
@@ -183,9 +200,9 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 			throw new UnsupportedOperationException("ChainAsyncTaskLoader must only handle callbacks for its chained loader.");
 		
 		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB)
-			new FallbackDeliveredAsyncTask().execute(data);
+			mFallbackDeliveredTasks.add(new FallbackDeliveredAsyncTask().execute(data));
 		else
-			new FallbackDeliveredAsyncTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, data);
+			mFallbackDeliveredTasks.add(new FallbackDeliveredAsyncTask().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, data));
 	}
 	
 	protected T onFallbackDelivered(T data, Type type) throws DataProviderException {
@@ -194,6 +211,17 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 	
 	@Override
 	public Result<T> loadInBackground() {
+		synchronized (mFallbackDeliveredTasks) {
+			long start = SystemClock.currentThreadTimeMillis();
+			while (!mFallbackDeliveredTasks.isEmpty()) {
+				try {
+					mFallbackDeliveredTasks.wait(5000);
+				} catch (InterruptedException ignored) { }
+				if (SystemClock.currentThreadTimeMillis() - start > 5000)
+					Log.w("DocuSign", "Waiting for onFallbackDelivered to finish: " + this);
+			}
+		}
+		
 		try {
 			return Result.success(doLoad());
 		} catch (NoResultException nores) {
