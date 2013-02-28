@@ -25,6 +25,9 @@ public class Result<T> {
 	private final Type mType;
 
 	protected Result(T result, DataProviderException ex, Type type) {
+		if (type == null)
+			throw new IllegalArgumentException("Type must not be null.");
+		
 		m_Result = result;
 		m_Exception = ex;
 		mType = type;

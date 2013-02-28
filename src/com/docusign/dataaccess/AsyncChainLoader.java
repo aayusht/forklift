@@ -182,7 +182,7 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 			releaseData(oldData);
 		}
 		
-		if (data.getType() == Type.COMPLETE)
+		if (data == null || data.getType() == Type.COMPLETE)
 			performLoad();
 	}
 	
