@@ -164,7 +164,8 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 		super.onCanceled(data);
 		// TODO: should we be resetting anything here? state, specifically?
 		releaseData(data);
-		mFallbackDeliveryBoy.cancel(true);
+		if (mFallbackDeliveryBoy != null)
+			mFallbackDeliveryBoy.cancel(true);
 	}
 
 	@Override
