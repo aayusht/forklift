@@ -1,6 +1,7 @@
 package com.docusign.dataaccess;
 
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -60,9 +61,9 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 			
 			while (!isCancelled()) {
 				data = null;
-				while (data == null) {
+				while (data == null && !isCancelled()) {
 					try {
-						data = mResults.take();
+						data = mResults.poll(1, TimeUnit.SECONDS);
 					} catch (InterruptedException ignored) { }
 				}
 				
@@ -164,8 +165,8 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 		super.onCanceled(data);
 		// TODO: should we be resetting anything here? state, specifically?
 		releaseData(data);
-		if (mFallbackDeliveryBoy != null)
-			mFallbackDeliveryBoy.cancel(true);
+		if (mFallbackDeliveryBoy != null) // i don't think this will ever be non-null here, but leaving it to be safe - sarbs
+			mFallbackDeliveryBoy.cancel(false);
 	}
 
 	@Override
