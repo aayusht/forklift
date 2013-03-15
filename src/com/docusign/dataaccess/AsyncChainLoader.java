@@ -34,7 +34,9 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 					throw new UnsupportedOperationException("If there is no chained loader, doLoad() must return a result.");
 				
 				try {
+					m_Loader.unregisterListener(m_Loader);
 					ret = LoaderHelper.getSync(m_Loader.getChainLoader()).get();
+					m_Loader.registerListener(0, m_Loader);
 					m_Loader.onFallbackDelivered(ret, null); // TODO: this doesn't understand PARTIAL!
 					return Result.success(ret);
 				} catch (DataProviderException chainEx) {
