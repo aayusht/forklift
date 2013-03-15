@@ -15,6 +15,7 @@ public class LoaderHelper<T> implements Loader.OnLoadCompleteListener<T> {
 	
 	private Loader<T> m_Loader;
 	private T m_Data;
+	private final Object m_Lock = new Object();
 	
 	public LoaderHelper(Loader<T> loader) {
 		m_Loader = loader;
@@ -25,17 +26,25 @@ public class LoaderHelper<T> implements Loader.OnLoadCompleteListener<T> {
 		if (loader != m_Loader)
 			throw new UnsupportedOperationException("Cannot manage any but my own loader.");
 		
-		m_Data = data;
+		synchronized (m_Lock) {
+			m_Data = data;
+			m_Lock.notifyAll();
+		}
 	}
 	
 	public T getSync() {
 		if (m_Loader instanceof AsyncTaskLoader<?>) {
 			return ((AsyncTaskLoader<T>)m_Loader).loadInBackground();
 		} else {
-			m_Loader.registerListener(0, this);
-			m_Loader.startLoading();
-			m_Loader.abandon();
-			return m_Data;
+			synchronized (m_Lock) {
+				m_Loader.registerListener(0, this);
+				m_Loader.startLoading();
+				try {
+					m_Lock.wait();
+				} catch (InterruptedException ignored) { }
+				m_Loader.abandon();
+				return m_Data;
+			}
 		}
 	}
 }
