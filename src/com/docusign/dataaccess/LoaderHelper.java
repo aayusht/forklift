@@ -43,6 +43,7 @@ public class LoaderHelper<T> implements Loader.OnLoadCompleteListener<T> {
 					m_Lock.wait();
 				} catch (InterruptedException ignored) { }
 				m_Loader.abandon();
+				m_Loader.unregisterListener(this);
 				return m_Data;
 			}
 		}
