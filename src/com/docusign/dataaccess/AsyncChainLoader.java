@@ -28,6 +28,7 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 			T ret;
 			try {
 				ret = m_Loader.doLoad();
+				m_Loader.reset();
 				return Result.success(ret);
 			} catch (NoResultException e) {
 				if (m_Loader.getChainLoader() == null)

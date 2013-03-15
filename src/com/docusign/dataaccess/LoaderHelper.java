@@ -34,7 +34,9 @@ public class LoaderHelper<T> implements Loader.OnLoadCompleteListener<T> {
 	
 	public T getSync() {
 		if (m_Loader instanceof AsyncTaskLoader<?>) {
-			return ((AsyncTaskLoader<T>)m_Loader).loadInBackground();
+			T t = ((AsyncTaskLoader<T>)m_Loader).loadInBackground();
+			m_Loader.reset();
+			return t;
 		} else {
 			synchronized (m_Lock) {
 				m_Loader.registerListener(0, this);
@@ -42,7 +44,7 @@ public class LoaderHelper<T> implements Loader.OnLoadCompleteListener<T> {
 				try {
 					m_Lock.wait();
 				} catch (InterruptedException ignored) { }
-				m_Loader.abandon();
+				m_Loader.reset();
 				m_Loader.unregisterListener(this);
 				return m_Data;
 			}
