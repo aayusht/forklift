@@ -1,4 +1,4 @@
-package com.docusign.dataaccess;
+package com.docusign.loaders;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -8,11 +8,12 @@ import android.support.v4.content.AsyncTaskLoader;
 import android.support.v4.content.Loader;
 import android.util.Log;
 
-import com.docusign.dataaccess.Result.Type;
+import com.docusign.dataaccess.DataProviderException;
+import com.docusign.loaders.Result.Type;
 
 import java.util.ArrayList;
 
-public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>> 
+public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 															   implements Loader.OnLoadCompleteListener<Result<T>> {
 	
 	public static class AsyncChainLoaderHelper<T> extends LoaderHelper<Result<T>> {

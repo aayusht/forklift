@@ -1,4 +1,6 @@
-package com.docusign.dataaccess;
+package com.docusign.loaders;
+
+import com.docusign.dataaccess.DataProviderException;
 
 public class Result<T> {
 	
