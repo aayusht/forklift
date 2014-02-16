@@ -3,7 +3,6 @@ package com.docusign.dataaccess;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.AsyncTask;
-import android.os.Build;
 import android.os.SystemClock;
 import android.support.v4.content.AsyncTaskLoader;
 import android.support.v4.content.Loader;
@@ -201,12 +200,8 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 	public final void onLoadComplete(Loader<Result<T>> loader, Result<T> data) {
 		if (loader != m_Chain)
 			throw new UnsupportedOperationException("ChainAsyncTaskLoader must only handle callbacks for its chained loader.");
-
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB) {
-            mFallbackDeliveredTasks.add(new FallbackDeliveredAsyncTask().execute(data));
-        } else {
-            mFallbackDeliveredTasks.add(new FallbackDeliveredAsyncTask().executeOnExecutor(FallbackDeliveryExecutor.get(this), data));
-        }
+		
+		mFallbackDeliveredTasks.add(new FallbackDeliveredAsyncTask().executeOnExecutor(FallbackDeliveryExecutor.get(this), data));
 	}
 	
 	protected T onFallbackDelivered(T data, Type type) throws DataProviderException {
