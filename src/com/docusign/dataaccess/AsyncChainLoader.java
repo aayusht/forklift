@@ -1,16 +1,16 @@
 package com.docusign.dataaccess;
 
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.AsyncTask;
-import android.os.SystemClock;
+import android.os.Build;
 import android.support.v4.content.AsyncTaskLoader;
 import android.support.v4.content.Loader;
-import android.util.Log;
 
 import com.docusign.dataaccess.Result.Type;
-
-import java.util.ArrayList;
 
 public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>> 
 															   implements Loader.OnLoadCompleteListener<Result<T>> {
@@ -48,35 +48,45 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 			}
 		}
 	}
-
-	private class FallbackDeliveredAsyncTask extends AsyncTask<Result<T>, Void, Result<T>> {
+	
+	private class FallbackDeliveredAsyncTask extends AsyncTask<Void, Result<T>, Void> {
+		
+		private final LinkedBlockingQueue<Result<T>> mResults = new LinkedBlockingQueue<Result<T>>();
+		
+		public void addResult(Result<T> result) {
+			mResults.offer(result);
+		}
+		
+		@SuppressWarnings("unchecked")
 		@Override
-		protected Result<T> doInBackground(Result<T>... params) {
-			if (isCancelled())
-				return null;
+		protected Void doInBackground(Void... params) {
+			Result<T> data;
 			
-			Result<T> data = (Result<T>)params[0];
-			
-			try {
-				data = new Result<T>(AsyncChainLoader.this.onFallbackDelivered(data.get(), data.getType()), null, data.getType());
-			} catch (NoResultException nores) {
+			while (!isCancelled()) {
 				data = null;
-			} catch (DataProviderException e) {
-				data = Result.failure(e);
+				while (data == null && !isCancelled()) {
+					try {
+						data = mResults.poll(1, TimeUnit.SECONDS);
+					} catch (InterruptedException ignored) { }
+				}
+				
+				try {
+					data = new Result<T>(AsyncChainLoader.this.onFallbackDelivered(data.get(), data.getType()), null, data.getType());
+				} catch (NoResultException nores) {
+					data = null;
+				} catch (DataProviderException e) {
+					data = Result.failure(e);
+				}
+				
+				publishProgress(data);
 			}
 			
-			return data;
+			return null;
 		}
 
 		@Override
-		protected void onCancelled(Result<T> result) {
-			removeTask(this);
-		}
-
-		@Override
-		protected void onPostExecute(Result<T> result) {
-			AsyncChainLoader.this.deliverResult(result);
-			removeTask(this);
+		protected void onProgressUpdate(Result<T>... result) {
+			AsyncChainLoader.this.deliverResult(result[0]);
 		}
 	}
 	
@@ -93,7 +103,7 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 	private static final int ALL_LOADS_COMPLETE = LOADING_CHAIN + 1; // this should always be "last + 1"
 	
 	private final Loader<Result<T>> m_Chain;
-	private final ArrayList<AsyncTask<?, ?, ?>> mFallbackDeliveredTasks;
+	private FallbackDeliveredAsyncTask mFallbackDeliveryBoy;
 	private Result<T> m_Data;
 	private int m_State;
 
@@ -101,19 +111,11 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 		super(context);
 		
 		m_Chain = chain;
-		mFallbackDeliveredTasks = new ArrayList<AsyncTask<?, ?, ?>>();
 		
 		m_State = INITIALIZED;
 		
 		if (m_Chain != null)
 			m_Chain.registerListener(0, this);
-	}
-	
-	private void removeTask(FallbackDeliveredAsyncTask task) {
-		synchronized (mFallbackDeliveredTasks) {
-			mFallbackDeliveredTasks.remove(task);
-			mFallbackDeliveredTasks.notifyAll();
-		}
 	}
 	
 	// TODO: wrap this somehow and make it work
@@ -132,8 +134,10 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 		if (m_Chain != null)
 			m_Chain.reset();
 		
-		for (AsyncTask<?, ?, ?> task : mFallbackDeliveredTasks)
-			task.cancel(false);
+		if (mFallbackDeliveryBoy != null) {
+			mFallbackDeliveryBoy.cancel(false);
+			mFallbackDeliveryBoy = null;
+		}
 	}
 
 	@Override
@@ -164,6 +168,8 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 		super.onCanceled(data);
 		// TODO: should we be resetting anything here? state, specifically?
 		releaseData(data);
+		if (mFallbackDeliveryBoy != null) // i don't think this will ever be non-null here, but leaving it to be safe - sarbs
+			mFallbackDeliveryBoy.cancel(false);
 	}
 
 	@Override
@@ -201,7 +207,15 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 		if (loader != m_Chain)
 			throw new UnsupportedOperationException("ChainAsyncTaskLoader must only handle callbacks for its chained loader.");
 		
-		mFallbackDeliveredTasks.add(new FallbackDeliveredAsyncTask().executeOnExecutor(FallbackDeliveryExecutor.get(this), data));
+		if (mFallbackDeliveryBoy == null) {
+			mFallbackDeliveryBoy = new FallbackDeliveredAsyncTask();
+			if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB)
+				mFallbackDeliveryBoy.execute();
+			else
+				mFallbackDeliveryBoy.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+		}
+		
+		mFallbackDeliveryBoy.addResult(data);
 	}
 	
 	protected T onFallbackDelivered(T data, Type type) throws DataProviderException {
@@ -210,17 +224,6 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 	
 	@Override
 	public Result<T> loadInBackground() {
-		synchronized (mFallbackDeliveredTasks) {
-			long start = SystemClock.currentThreadTimeMillis();
-			while (!mFallbackDeliveredTasks.isEmpty()) {
-				try {
-					mFallbackDeliveredTasks.wait(5000);
-				} catch (InterruptedException ignored) { }
-				if (SystemClock.currentThreadTimeMillis() - start > 5000)
-					Log.w("DocuSign", "Waiting for onFallbackDelivered to finish: " + this);
-			}
-		}
-		
 		try {
 			return Result.success(doLoad());
 		} catch (NoResultException nores) {
