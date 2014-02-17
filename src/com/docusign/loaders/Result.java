@@ -1,4 +1,4 @@
-package com.docusign.dataaccess;
+package com.docusign.loaders;
 
 public class Result<T> {
 	
@@ -16,15 +16,15 @@ public class Result<T> {
 		return new Result<T>(result, null, Type.PARTIAL);
 	}
 	
-	public static <T> Result<T> failure(DataProviderException err) {
+	public static <T> Result<T> failure(ChainLoaderException err) {
 		return new Result<T>(null, err, Type.FAILURE);
 	}
 	
-	private final DataProviderException m_Exception;
+	private final ChainLoaderException m_Exception;
 	private final T m_Result;
 	private final Type mType;
 
-	protected Result(T result, DataProviderException ex, Type type) {
+	protected Result(T result, ChainLoaderException ex, Type type) {
 		if (type == null)
 			throw new IllegalArgumentException("Type must not be null.");
 		
@@ -33,7 +33,7 @@ public class Result<T> {
 		mType = type;
 	}
 
-	public T get() throws DataProviderException {
+	public T get() throws ChainLoaderException {
 		if (m_Exception != null)
 			throw m_Exception;
 		
