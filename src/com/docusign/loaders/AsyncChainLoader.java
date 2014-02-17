@@ -8,7 +8,6 @@ import android.support.v4.content.AsyncTaskLoader;
 import android.support.v4.content.Loader;
 import android.util.Log;
 
-import com.docusign.dataaccess.DataProviderException;
 import com.docusign.loaders.Result.Type;
 
 import java.util.ArrayList;
@@ -41,10 +40,10 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 					m_Loader.getChainLoader().registerListener(0, m_Loader);
 					m_Loader.onFallbackDelivered(ret, null); // TODO: this doesn't understand PARTIAL!
 					return Result.success(ret);
-				} catch (DataProviderException chainEx) {
+				} catch (ChainLoaderException chainEx) {
 					return Result.failure(chainEx);
 				}
-			} catch (DataProviderException e) {
+			} catch (ChainLoaderException e) {
 				return Result.failure(e);
 			}
 		}
@@ -62,7 +61,7 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 				data = new Result<T>(AsyncChainLoader.this.onFallbackDelivered(data.get(), data.getType()), null, data.getType());
 			} catch (NoResultException nores) {
 				data = null;
-			} catch (DataProviderException e) {
+			} catch (ChainLoaderException e) {
 				data = Result.failure(e);
 			}
 			
@@ -81,7 +80,7 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 		}
 	}
 	
-	private static class NoResultException extends DataProviderException {
+	private static class NoResultException extends ChainLoaderException {
 		private static final long serialVersionUID = 2596920468208815208L;
 	}
 	
@@ -205,7 +204,7 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 		mFallbackDeliveredTasks.add(new FallbackDeliveredAsyncTask().executeOnExecutor(FallbackDeliveryExecutor.get(this), data));
 	}
 	
-	protected T onFallbackDelivered(T data, Type type) throws DataProviderException {
+	protected T onFallbackDelivered(T data, Type type) throws ChainLoaderException {
 		return data;
 	}
 	
@@ -229,12 +228,12 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 				throw new UnsupportedOperationException("If there is no chained loader, doLoad() must return a result.");
 			
 			return null;
-		} catch (DataProviderException err) {
+		} catch (ChainLoaderException err) {
 			return Result.failure(err);
 		}
 	}
 	
-	public abstract T doLoad() throws DataProviderException;
+	public abstract T doLoad() throws ChainLoaderException;
 	
 	protected Loader<Result<T>> getChainLoader() {
 		return m_Chain;
