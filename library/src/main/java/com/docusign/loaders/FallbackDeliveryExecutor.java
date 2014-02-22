@@ -23,7 +23,7 @@ class FallbackDeliveryExecutor extends ThreadPoolExecutor {
     private static final int MAXIMUM_POOL_SIZE = CPU_COUNT * 2 + 1;
     private static final int KEEP_ALIVE = 1;
 
-    private static class RunnableWrapper implements Runnable {
+    private class RunnableWrapper implements Runnable {
         private final AsyncChainLoader<?> mLoader;
         private final Runnable mRunnable;
 
@@ -38,7 +38,9 @@ class FallbackDeliveryExecutor extends ThreadPoolExecutor {
         }
 
         public void run() {
+            ((FallbackQueue)FallbackDeliveryExecutor.this.getQueue()).startedRunning(this); // no-op unless a new Worker was started directly with this job
             mRunnable.run();
+            ((FallbackQueue)FallbackDeliveryExecutor.this.getQueue()).finishedRunning(this);
         }
 
         public AsyncChainLoader<?> getLoader() {
@@ -85,7 +87,10 @@ class FallbackDeliveryExecutor extends ThreadPoolExecutor {
         @Override
         public boolean add(Runnable runnable) {
             RunnableWrapper runnableWrapper = checkWrapped(runnable);
-            boolean changed = getQueue(runnableWrapper.getLoader()).add(runnableWrapper);
+            boolean changed;
+            synchronized (mQueues) {
+                changed = getQueue(runnableWrapper.getLoader()).add(runnableWrapper);
+            }
             if (changed) {
                 synchronized (mNotifier) {
                     mNotifier.notify(); // do NOT use notifyAll here - we only want to wake up one thread!
@@ -105,7 +110,10 @@ class FallbackDeliveryExecutor extends ThreadPoolExecutor {
         @Override
         public boolean offer(Runnable runnable) {
             RunnableWrapper runnableWrapper = checkWrapped(runnable);
-            boolean changed = getQueue(runnableWrapper.getLoader()).offer(runnableWrapper);
+            boolean changed;
+            synchronized (mQueues) {
+                changed = getQueue(runnableWrapper.getLoader()).offer(runnableWrapper);
+            }
             if (changed) {
                 synchronized (mNotifier) {
                     mNotifier.notify(); // do NOT use notifyAll here - we only want to wake up one thread!
@@ -117,7 +125,9 @@ class FallbackDeliveryExecutor extends ThreadPoolExecutor {
         @Override
         public void put(Runnable runnable) throws InterruptedException {
             RunnableWrapper runnableWrapper = checkWrapped(runnable);
-            getQueue(runnableWrapper.getLoader()).put(runnableWrapper);
+            synchronized (mQueues) {
+                getQueue(runnableWrapper.getLoader()).put(runnableWrapper);
+            }
             synchronized (mNotifier) { // if we got here, we added successfully (no throw)
                 mNotifier.notify(); // do NOT use notifyAll here - we only want to wake up one thread!
             }
@@ -126,7 +136,10 @@ class FallbackDeliveryExecutor extends ThreadPoolExecutor {
         @Override
         public boolean offer(Runnable runnable, long timeout, TimeUnit unit) throws InterruptedException {
             RunnableWrapper runnableWrapper = checkWrapped(runnable);
-            boolean changed = getQueue(runnableWrapper.getLoader()).offer(runnableWrapper, timeout, unit);
+            boolean changed;
+            synchronized (mQueues) {
+                changed = getQueue(runnableWrapper.getLoader()).offer(runnableWrapper, timeout, unit);
+            }
             if (changed) {
                 synchronized (mNotifier) {
                     mNotifier.notify(); // do NOT use notifyAll here - we only want to wake up one thread!
@@ -144,18 +157,16 @@ class FallbackDeliveryExecutor extends ThreadPoolExecutor {
                 LinkedBlockingQueue<RunnableWrapper> queue;
                 synchronized (mQueues) {
                     queue = mQueues.get(rw.getLoader());
-                }
-                if (queue != null) {
-                    boolean changed = queue.remove(o);
-                    if (queue.isEmpty()) { // anytime we take an object out, make sure we don't keep around empty queues
-                        synchronized (mQueues) {
+                    if (queue != null) {
+                        boolean changed = queue.remove(o);
+                        if (queue.isEmpty()) { // anytime we take an object out, make sure we don't keep around empty queues
                             mQueues.remove(rw.getLoader());
                         }
+                        return changed;
                     }
-                    return changed;
-                }
-                else {
-                    return false;
+                    else {
+                        return false;
+                    }
                 }
             }
             return false;
@@ -207,8 +218,10 @@ class FallbackDeliveryExecutor extends ThreadPoolExecutor {
                     LinkedBlockingQueue<RunnableWrapper> queue = mQueues.get(rw.getLoader());
                     queue.remove();
                     if (queue.isEmpty())
-                        mQueues.remove(queue);
+                        mQueues.remove(rw.getLoader());
                 }
+                if (rw != null)
+                    startedRunning(rw);
                 return rw;
             }
         }
@@ -364,13 +377,15 @@ class FallbackDeliveryExecutor extends ThreadPoolExecutor {
                 return new Thread(r, "Fallback Delivery Boy #" + mCount.getAndIncrement());
             }
         });
+
+        prestartAllCoreThreads();
     }
 
     public static Executor get(final AsyncChainLoader<?> loader) {
         return new Executor() {
             @Override
             public void execute(Runnable command) {
-                sInstance.execute(new RunnableWrapper(loader, command));
+                sInstance.execute(sInstance.new RunnableWrapper(loader, command));
             }
         };
     }
