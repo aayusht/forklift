@@ -135,7 +135,7 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 
         for (AsyncTask<?, ?, ?> task : mFallbackDeliveredTasks)
             task.cancel(false);
-    }
+        }
 
     @Override
     protected final void onStartLoading() {
@@ -201,6 +201,8 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
     public final void onLoadComplete(Loader<Result<T>> loader, Result<T> data) {
         if (loader != m_Chain)
             throw new UnsupportedOperationException("ChainAsyncTaskLoader must only handle callbacks for its chained loader.");
+
+        if (!isStarted()) return;
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB)
             mFallbackDeliveredTasks.add(new FallbackDeliveredAsyncTask().execute(data));
