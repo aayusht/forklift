@@ -1,4 +1,4 @@
-package com.docusign.loaders;
+package com.docusign.forklift;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -9,7 +9,7 @@ import android.support.v4.content.AsyncTaskLoader;
 import android.support.v4.content.Loader;
 import android.util.Log;
 
-import com.docusign.loaders.Result.Type;
+import com.docusign.forklift.Result.Type;
 
 import java.util.ArrayList;
 
@@ -97,6 +97,7 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
     private final ArrayList<AsyncTask<?, ?, ?>> mFallbackDeliveredTasks;
     private Result<T> m_Data;
     private int m_State;
+    private final Throwable mCreatedLocation;
 
     public AsyncChainLoader(Context context, Loader<Result<T>> chain) {
         super(context);
@@ -108,6 +109,8 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 
         if (m_Chain != null)
             m_Chain.registerListener(0, this);
+
+        mCreatedLocation = new Exception().fillInStackTrace();
     }
 
     private void removeTask(FallbackDeliveredAsyncTask task) {
@@ -236,6 +239,12 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
             return null;
         } catch (ChainLoaderException err) {
             return Result.failure(err);
+        } catch (Error err) {
+            Log.e("AsyncChainLoader", "The following exception occurred during processing of an AsyncChainLoader started at:", mCreatedLocation);
+            throw err;
+        } catch (RuntimeException re) {
+            Log.e("AsyncChainLoader", "The following exception occurred during processing of an AsyncChainLoader started at:", mCreatedLocation);
+            throw re;
         }
     }
 

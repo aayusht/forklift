@@ -1,19 +1,13 @@
-package com.docusign.loaders;
+package com.docusign.forklift;
 
 import android.content.Context;
-import android.support.v4.content.Loader;
 import android.test.AndroidTestCase;
 
-import junit.framework.TestCase;
-
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.FutureTask;
-import java.util.concurrent.RunnableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
