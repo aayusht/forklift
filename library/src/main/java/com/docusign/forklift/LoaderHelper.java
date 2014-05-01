@@ -33,21 +33,23 @@ public class LoaderHelper<T> implements Loader.OnLoadCompleteListener<T> {
 	}
 	
 	public T getSync() {
-		if (m_Loader instanceof AsyncTaskLoader<?>) {
-			T t = ((AsyncTaskLoader<T>)m_Loader).loadInBackground();
-			m_Loader.reset();
-			return t;
-		} else {
-			synchronized (m_Lock) {
-				m_Loader.registerListener(0, this);
-				m_Loader.startLoading();
-				try {
-					m_Lock.wait();
-				} catch (InterruptedException ignored) { }
-				m_Loader.reset();
-				m_Loader.unregisterListener(this);
-				return m_Data;
-			}
-		}
+        try {
+            if (m_Loader instanceof AsyncTaskLoader<?>) {
+                T t = ((AsyncTaskLoader<T>)m_Loader).loadInBackground();
+                return t;
+            } else {
+                synchronized (m_Lock) {
+                    m_Loader.registerListener(0, this);
+                    m_Loader.startLoading();
+                    try {
+                        m_Lock.wait();
+                    } catch (InterruptedException ignored) { }
+                    m_Loader.unregisterListener(this);
+                    return m_Data;
+                }
+            }
+        } finally {
+            m_Loader.reset(); // leave in a fresh state TODO: this violates the documented contract that onReset() is always called from main thread
+        }
 	}
 }

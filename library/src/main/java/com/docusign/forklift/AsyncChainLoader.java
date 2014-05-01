@@ -28,24 +28,25 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
         public Result<T> getSync() {
             T ret;
             try {
-                ret = m_Loader.doLoad();
-                m_Loader.reset();
-                return Result.success(ret);
-            } catch (NoResultException e) {
-                if (m_Loader.getChainLoader() == null)
-                    throw new UnsupportedOperationException("If there is no chained loader, doLoad() must return a result.");
-
                 try {
-                    m_Loader.getChainLoader().unregisterListener(m_Loader);
-                    ret = LoaderHelper.getSync(m_Loader.getChainLoader()).get();
-                    m_Loader.getChainLoader().registerListener(0, m_Loader);
-                    m_Loader.onFallbackDelivered(ret, null); // TODO: this doesn't understand PARTIAL!
-                    return Result.success(ret);
-                } catch (ChainLoaderException chainEx) {
-                    return Result.failure(chainEx);
+                    try {
+                        ret = m_Loader.doLoad();
+                        return Result.success(ret);
+                    } catch (NoResultException e) {
+                        if (m_Loader.getChainLoader() == null)
+                            throw new UnsupportedOperationException("If there is no chained loader, doLoad() must return a result.");
+
+                        m_Loader.getChainLoader().unregisterListener(m_Loader);
+                        ret = LoaderHelper.getSync(m_Loader.getChainLoader()).get();
+                        m_Loader.getChainLoader().registerListener(0, m_Loader);
+                        m_Loader.onFallbackDelivered(ret, null); // TODO: this doesn't understand PARTIAL!
+                        return Result.success(ret);
+                    }
+                } catch (ChainLoaderException e) {
+                    return Result.failure(e);
                 }
-            } catch (ChainLoaderException e) {
-                return Result.failure(e);
+            } finally {
+                m_Loader.reset(); // leave in a fresh state TODO: this violates the documented contract that onReset() is always called from main thread
             }
         }
     }
