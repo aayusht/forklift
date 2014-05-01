@@ -4,14 +4,20 @@ import android.support.v4.content.AsyncTaskLoader;
 import android.support.v4.content.Loader;
 
 public class LoaderHelper<T> implements Loader.OnLoadCompleteListener<T> {
+
+    public static class LoadCancelledException extends ChainLoaderException {
+
+    }
 	
 	@SuppressWarnings("unchecked")
-	public static <T> T getSync(Loader<T> loader) {
+	public static <T> T getSync(Loader<T> loader) throws LoadCancelledException {
 		if (loader instanceof AsyncChainLoader<?>)
 			return (T)new AsyncChainLoader.AsyncChainLoaderHelper<T>((AsyncChainLoader<T>)loader).getSync();
 		else
 			return new LoaderHelper<T>(loader).getSync();
 	}
+
+    private static final long LOADER_WATCH_MILLIS = 20;
 	
 	private Loader<T> m_Loader;
 	private T m_Data;
@@ -32,7 +38,7 @@ public class LoaderHelper<T> implements Loader.OnLoadCompleteListener<T> {
 		}
 	}
 	
-	private T getSync() {
+	private T getSync() throws LoadCancelledException {
         m_Loader.reset(); // start in a fresh state TODO: this violates the documented contract that onReset() is always called from main thread
         try {
             if (m_Loader instanceof AsyncTaskLoader<?>) {
@@ -42,9 +48,13 @@ public class LoaderHelper<T> implements Loader.OnLoadCompleteListener<T> {
                 synchronized (m_Lock) {
                     m_Loader.registerListener(0, this);
                     m_Loader.startLoading();
-                    try {
-                        m_Lock.wait();
-                    } catch (InterruptedException ignored) { }
+                    while (m_Data == null) {
+                        try {
+                            if (!m_Loader.isStarted())
+                                throw new LoadCancelledException();
+                            m_Lock.wait(LOADER_WATCH_MILLIS);
+                        } catch (InterruptedException ignored) { }
+                    }
                     m_Loader.unregisterListener(this);
                     return m_Data;
                 }
