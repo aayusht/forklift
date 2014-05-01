@@ -28,6 +28,7 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
         @Override
         protected Result<T> getSync() {
             T ret;
+            m_Loader.reset(); // start fresh TODO: this violates the documented contract that onReset() is always called from main thread
             try {
                 try {
                     try {
@@ -47,7 +48,7 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
                     return Result.failure(e);
                 }
             } finally {
-                m_Loader.reset(); // leave in a fresh state TODO: this violates the documented contract that onReset() is always called from main thread
+                m_Loader.reset(); // leave in a fresh state, too TODO: this violates the documented contract that onReset() is always called from main thread
             }
         }
     }
