@@ -16,7 +16,7 @@ import java.util.ArrayList;
 public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
         implements Loader.OnLoadCompleteListener<Result<T>> {
 
-    public static class AsyncChainLoaderHelper<T> extends LoaderHelper<Result<T>> {
+    /* package */ static class AsyncChainLoaderHelper<T> extends LoaderHelper<Result<T>> {
 
         private AsyncChainLoader<T> m_Loader;
 
@@ -25,7 +25,8 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
             m_Loader = loader;
         }
 
-        public Result<T> getSync() {
+        @Override
+        protected Result<T> getSync() {
             T ret;
             try {
                 try {
