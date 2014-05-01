@@ -9,7 +9,6 @@ import android.support.v4.content.AsyncTaskLoader;
 import android.support.v4.content.Loader;
 import android.util.Log;
 
-import com.docusign.forklift.LoaderHelper.LoadCancelledException;
 import com.docusign.forklift.Result.Type;
 
 import java.util.ArrayList;

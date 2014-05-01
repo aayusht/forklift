@@ -5,11 +5,7 @@ import android.support.v4.content.Loader;
 
 public class LoaderHelper<T> implements Loader.OnLoadCompleteListener<T> {
 
-    public static class LoadCancelledException extends ChainLoaderException {
-
-    }
-	
-	@SuppressWarnings("unchecked")
+    @SuppressWarnings("unchecked")
 	public static <T> T getSync(Loader<T> loader) throws LoadCancelledException {
 		if (loader instanceof AsyncChainLoader<?>)
 			return (T)new AsyncChainLoader.AsyncChainLoaderHelper<T>((AsyncChainLoader<T>)loader).getSync();
