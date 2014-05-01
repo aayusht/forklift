@@ -32,7 +32,7 @@ public class LoaderHelper<T> implements Loader.OnLoadCompleteListener<T> {
 		}
 	}
 	
-	protected T getSync() {
+	private T getSync() {
         m_Loader.reset(); // start in a fresh state TODO: this violates the documented contract that onReset() is always called from main thread
         try {
             if (m_Loader instanceof AsyncTaskLoader<?>) {

@@ -16,17 +16,15 @@ import java.util.ArrayList;
 public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
         implements Loader.OnLoadCompleteListener<Result<T>> {
 
-    /* package */ static class AsyncChainLoaderHelper<T> extends LoaderHelper<Result<T>> {
+    /* package */ static class AsyncChainLoaderHelper<T> {
 
         private AsyncChainLoader<T> m_Loader;
 
         public AsyncChainLoaderHelper(AsyncChainLoader<T> loader) {
-            super(loader);
             m_Loader = loader;
         }
 
-        @Override
-        protected Result<T> getSync() {
+        /* package */ Result<T> getSync() {
             T ret;
             m_Loader.reset(); // start fresh TODO: this violates the documented contract that onReset() is always called from main thread
             try {
