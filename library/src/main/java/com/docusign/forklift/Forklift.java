@@ -3,14 +3,14 @@ package com.docusign.forklift;
 import android.support.v4.content.AsyncTaskLoader;
 import android.support.v4.content.Loader;
 
-public class LoaderHelper<T> implements Loader.OnLoadCompleteListener<T> {
+public class Forklift<T> implements Loader.OnLoadCompleteListener<T> {
 
     @SuppressWarnings("unchecked")
 	public static <T> T getSync(Loader<T> loader) throws LoadCancelledException {
 		if (loader instanceof AsyncChainLoader<?>)
-			return (T)new AsyncChainLoader.AsyncChainLoaderHelper<T>((AsyncChainLoader<T>)loader).getSync();
+			return (T)new AsyncChainLoader.ACLForklift<T>((AsyncChainLoader<T>)loader).getSync();
 		else
-			return new LoaderHelper<T>(loader).getSync();
+			return new Forklift<T>(loader).getSync();
 	}
 
     private static final long LOADER_WATCH_MILLIS = 20;
@@ -19,7 +19,7 @@ public class LoaderHelper<T> implements Loader.OnLoadCompleteListener<T> {
 	private T m_Data;
 	private final Object m_Lock = new Object();
 	
-	private LoaderHelper(Loader<T> loader) {
+	private Forklift(Loader<T> loader) {
 		m_Loader = loader;
 	}
 

@@ -9,11 +9,11 @@ import android.test.AndroidTestCase;
 /**
  * Created by chris.sarbora on 4/30/14.
  */
-public class LoaderHelperTest extends AndroidTestCase {
+public class ForkliftTest extends AndroidTestCase {
     public static final Object EXPECTED_RESULT = new Object();
 
     public void testSynchronousLoader() throws Exception {
-        assertSame(EXPECTED_RESULT, LoaderHelper.getSync(new Loader<Object>(getContext()) {
+        assertSame(EXPECTED_RESULT, Forklift.getSync(new Loader<Object>(getContext()) {
             @Override
             protected void onStartLoading() {
                 deliverResult(EXPECTED_RESULT);
@@ -25,7 +25,7 @@ public class LoaderHelperTest extends AndroidTestCase {
     // this is because of the async-ness.. with a sync loader, each new result overwrites the last, *then* LoaderHelper looks at the value.
     // with an async loader, the first result delivered wakes up the waiting LoaderHelper and it proceeds immediately with that value
     public void testSynchronousMultiResultLoader() throws Exception {
-        assertNotSame(EXPECTED_RESULT, LoaderHelper.getSync(new Loader<Object>(getContext()) {
+        assertNotSame(EXPECTED_RESULT, Forklift.getSync(new Loader<Object>(getContext()) {
             @Override
             protected void onStartLoading() {
                 deliverResult(EXPECTED_RESULT);
@@ -33,7 +33,7 @@ public class LoaderHelperTest extends AndroidTestCase {
                 deliverResult(new Object());
             }
         }));
-        assertSame(EXPECTED_RESULT, LoaderHelper.getSync(new Loader<Object>(getContext()) {
+        assertSame(EXPECTED_RESULT, Forklift.getSync(new Loader<Object>(getContext()) {
             @Override
             protected void onStartLoading() {
                 deliverResult(new Object());
@@ -44,7 +44,7 @@ public class LoaderHelperTest extends AndroidTestCase {
     }
 
     public void testAsyncLoader() throws Exception {
-        assertSame(EXPECTED_RESULT, LoaderHelper.getSync(new Loader<Object>(getContext()) {
+        assertSame(EXPECTED_RESULT, Forklift.getSync(new Loader<Object>(getContext()) {
             @Override
             protected void onStartLoading() {
                 new AsyncTask<Void, Void, Object>() {
@@ -64,7 +64,7 @@ public class LoaderHelperTest extends AndroidTestCase {
 
     public void testAsyncMultiResultLoader() throws Exception {
         // note: this is expected to be NOT same, see note above testSyncMultiResultLoader
-        assertNotSame(EXPECTED_RESULT, LoaderHelper.getSync(new Loader<Object>(getContext()) {
+        assertNotSame(EXPECTED_RESULT, Forklift.getSync(new Loader<Object>(getContext()) {
             @Override
             protected void onStartLoading() {
                 new AsyncTask<Void, Object, Object>() {
@@ -91,7 +91,7 @@ public class LoaderHelperTest extends AndroidTestCase {
     }
 
     public void testAsyncTaskLoader() throws Exception {
-        assertSame(EXPECTED_RESULT, LoaderHelper.getSync(new AsyncTaskLoader<Object>(getContext()) {
+        assertSame(EXPECTED_RESULT, Forklift.getSync(new AsyncTaskLoader<Object>(getContext()) {
             @Override
             public Object loadInBackground() {
                 return EXPECTED_RESULT;
@@ -100,7 +100,7 @@ public class LoaderHelperTest extends AndroidTestCase {
     }
 
     public void testAsyncChainLoader() throws Exception {
-        assertSame(EXPECTED_RESULT, LoaderHelper.getSync(new AsyncChainLoader<Object>(getContext(), null) {
+        assertSame(EXPECTED_RESULT, Forklift.getSync(new AsyncChainLoader<Object>(getContext(), null) {
             @Override
             public Object doLoad() throws ChainLoaderException {
                 return EXPECTED_RESULT;
@@ -110,7 +110,7 @@ public class LoaderHelperTest extends AndroidTestCase {
 
     public void testFailingAsyncChainLoader() throws Exception {
         try {
-            LoaderHelper.getSync(new AsyncChainLoader<Object>(getContext(), null) {
+            Forklift.getSync(new AsyncChainLoader<Object>(getContext(), null) {
                 @Override
                 public Object doLoad() throws ChainLoaderException {
                     throw new ChainLoaderException();
@@ -124,7 +124,7 @@ public class LoaderHelperTest extends AndroidTestCase {
     }
 
     public void testChainedAsyncChainLoader() throws Exception {
-        assertSame(EXPECTED_RESULT, LoaderHelper.getSync(new AsyncChainLoader<Object>(getContext(), new AsyncChainLoader<Object>(getContext(), null) {
+        assertSame(EXPECTED_RESULT, Forklift.getSync(new AsyncChainLoader<Object>(getContext(), new AsyncChainLoader<Object>(getContext(), null) {
             @Override
             public Object doLoad() throws ChainLoaderException {
                 fail("Chained loader was called");
@@ -137,7 +137,7 @@ public class LoaderHelperTest extends AndroidTestCase {
             }
         }).get());
 
-        assertSame(EXPECTED_RESULT, LoaderHelper.getSync(new AsyncChainLoader<Object>(getContext(), new AsyncChainLoader<Object>(getContext(), null) {
+        assertSame(EXPECTED_RESULT, Forklift.getSync(new AsyncChainLoader<Object>(getContext(), new AsyncChainLoader<Object>(getContext(), null) {
             @Override
             public Object doLoad() throws ChainLoaderException {
                 return EXPECTED_RESULT;
@@ -152,7 +152,7 @@ public class LoaderHelperTest extends AndroidTestCase {
 
     public void testFailingChainedAsyncChainLoader() throws Exception {
         try {
-            LoaderHelper.getSync(new AsyncChainLoader<Object>(getContext(), new AsyncChainLoader<Object>(getContext(), null) {
+            Forklift.getSync(new AsyncChainLoader<Object>(getContext(), new AsyncChainLoader<Object>(getContext(), null) {
                 @Override
                 public Object doLoad() throws ChainLoaderException {
                     throw new ChainLoaderException();
@@ -172,7 +172,7 @@ public class LoaderHelperTest extends AndroidTestCase {
 
     public void testResetAsyncLoader() throws Exception {
         try {
-            assertNotSame("Loader was reset halfway through processing, but LoadCancelledException was not thrown.", EXPECTED_RESULT, LoaderHelper.getSync(new Loader<Object>(getContext()) {
+            assertNotSame("Loader was reset halfway through processing, but LoadCancelledException was not thrown.", EXPECTED_RESULT, Forklift.getSync(new Loader<Object>(getContext()) {
                 @Override
                 protected void onStartLoading() {
                     new AsyncTask<Void, Void, Object>() {
@@ -197,23 +197,24 @@ public class LoaderHelperTest extends AndroidTestCase {
     public void testResetAsyncChainLoader() throws Exception {
         try {
             assertNotSame("Loader was reset during processing, but LoadCancelledException was not thrown.",
-                    EXPECTED_RESULT, LoaderHelper.getSync(new AsyncChainLoader<Object>(getContext(), new AsyncChainLoader<Object>(getContext(), null) {
-                @Override
-                public Object doLoad() throws ChainLoaderException {
-                    return null;
-                }
-            }) {
-                @Override
-                public Object doLoad() throws ChainLoaderException {
-                    reset();
-                    throw NO_RESULT;
-                }
-            }).get());
+                    EXPECTED_RESULT, Forklift.getSync(new AsyncChainLoader<Object>(getContext(), new AsyncChainLoader<Object>(getContext(), null) {
+                        @Override
+                        public Object doLoad() throws ChainLoaderException {
+                            return null;
+                        }
+                    }) {
+                        @Override
+                        public Object doLoad() throws ChainLoaderException {
+                            reset();
+                            throw NO_RESULT;
+                        }
+                    }).get()
+            );
         } catch (LoadCancelledException expected) { }
 
         try {
             assertNotSame("Loader was reset during processing, but LoadCancelledException was not thrown.",
-                    EXPECTED_RESULT, LoaderHelper.getSync(new AsyncChainLoader<Object>(getContext(), new AsyncChainLoader<Object>(getContext(), null) {
+                    EXPECTED_RESULT, Forklift.getSync(new AsyncChainLoader<Object>(getContext(), new AsyncChainLoader<Object>(getContext(), null) {
                         @Override
                         public Object doLoad() throws ChainLoaderException {
                             reset();

@@ -16,11 +16,11 @@ import java.util.ArrayList;
 public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
         implements Loader.OnLoadCompleteListener<Result<T>> {
 
-    /* package */ static class AsyncChainLoaderHelper<T> {
+    /* package */ static class ACLForklift<T> {
 
         private AsyncChainLoader<T> m_Loader;
 
-        public AsyncChainLoaderHelper(AsyncChainLoader<T> loader) {
+        public ACLForklift(AsyncChainLoader<T> loader) {
             m_Loader = loader;
         }
 
@@ -41,7 +41,7 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 
                     m_Loader.m_State = LOADING_CHAIN;
                     m_Loader.getChainLoader().unregisterListener(m_Loader);
-                    ret = LoaderHelper.getSync(m_Loader.getChainLoader()).get();
+                    ret = Forklift.getSync(m_Loader.getChainLoader()).get();
                     m_Loader.getChainLoader().registerListener(0, m_Loader);
 
                     if (m_Loader.m_State != LOADING_CHAIN)
