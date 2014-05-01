@@ -30,32 +30,30 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
             m_Loader.reset(); // start fresh TODO: this violates the documented contract that onReset() is always called from main thread
             try {
                 try {
-                    try {
-                        m_Loader.m_State = LOADING_SELF;
-                        ret = m_Loader.doLoad();
-                        return Result.success(ret);
-                    } catch (NoResultException e) {
-                        if (m_Loader.getChainLoader() == null)
-                            throw new UnsupportedOperationException("If there is no chained loader, doLoad() must return a result.");
+                    m_Loader.m_State = LOADING_SELF;
+                    ret = m_Loader.doLoad();
+                    return Result.success(ret);
+                } catch (NoResultException e) {
+                    if (m_Loader.getChainLoader() == null)
+                        throw new UnsupportedOperationException("If there is no chained loader, doLoad() must return a result.");
 
-                        if (m_Loader.m_State != LOADING_SELF)
-                            throw new LoadCancelledException();
+                    if (m_Loader.m_State != LOADING_SELF)
+                        throw new LoadCancelledException();
 
-                        m_Loader.m_State = LOADING_CHAIN;
-                        m_Loader.getChainLoader().unregisterListener(m_Loader);
-                        ret = LoaderHelper.getSync(m_Loader.getChainLoader()).get();
-                        m_Loader.getChainLoader().registerListener(0, m_Loader);
+                    m_Loader.m_State = LOADING_CHAIN;
+                    m_Loader.getChainLoader().unregisterListener(m_Loader);
+                    ret = LoaderHelper.getSync(m_Loader.getChainLoader()).get();
+                    m_Loader.getChainLoader().registerListener(0, m_Loader);
 
-                        if (m_Loader.m_State != LOADING_CHAIN)
-                            throw new LoadCancelledException();
-                        m_Loader.onFallbackDelivered(ret, null); // TODO: this doesn't understand PARTIAL!
-                        return Result.success(ret);
-                    }
-                } catch (LoadCancelledException e) {
-                    throw e;
-                } catch (ChainLoaderException e) {
-                    return Result.failure(e);
+                    if (m_Loader.m_State != LOADING_CHAIN)
+                        throw new LoadCancelledException();
+                    m_Loader.onFallbackDelivered(ret, null); // TODO: this doesn't understand PARTIAL!
+                    return Result.success(ret);
                 }
+            } catch (LoadCancelledException e) {
+                throw e;
+            } catch (ChainLoaderException e) {
+                return Result.failure(e);
             } finally {
                 m_Loader.reset(); // leave in a fresh state, too TODO: this violates the documented contract that onReset() is always called from main thread
             }
