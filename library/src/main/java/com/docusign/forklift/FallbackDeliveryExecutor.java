@@ -376,7 +376,7 @@ class FallbackDeliveryExecutor extends ThreadPoolExecutor {
             public Thread newThread(Runnable r) {
                 return new Thread(r, "Fallback Delivery Boy #" + mCount.getAndIncrement());
             }
-        });
+        }, new ThreadPoolExecutor.DiscardPolicy());
 
         prestartAllCoreThreads();
     }
