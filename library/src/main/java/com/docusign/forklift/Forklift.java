@@ -1,7 +1,13 @@
 package com.docusign.forklift;
 
+import android.os.Handler;
+import android.os.Looper;
 import android.support.v4.content.AsyncTaskLoader;
 import android.support.v4.content.Loader;
+
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.RunnableFuture;
 
 public class Forklift<T> implements Loader.OnLoadCompleteListener<T> {
 
@@ -18,8 +24,9 @@ public class Forklift<T> implements Loader.OnLoadCompleteListener<T> {
 	private Loader<T> m_Loader;
 	private T m_Data;
 	private final Object m_Lock = new Object();
+    private final Handler mMainHandler = new Handler(Looper.getMainLooper());
 	
-	private Forklift(Loader<T> loader) {
+	protected Forklift(Loader<T> loader) {
 		m_Loader = loader;
 	}
 
@@ -34,8 +41,8 @@ public class Forklift<T> implements Loader.OnLoadCompleteListener<T> {
 		}
 	}
 	
-	private T getSync() throws LoadCancelledException {
-        m_Loader.reset(); // start in a fresh state TODO: this violates the documented contract that onReset() is always called from main thread
+	protected T getSync() throws LoadCancelledException {
+        resetSynchronouslyOnUiThread();
         try {
             if (m_Loader instanceof AsyncTaskLoader<?>) {
                 T t = ((AsyncTaskLoader<T>)m_Loader).loadInBackground();
@@ -56,7 +63,28 @@ public class Forklift<T> implements Loader.OnLoadCompleteListener<T> {
                 }
             }
         } finally {
-            m_Loader.reset(); // leave in a fresh state TODO: this violates the documented contract that onReset() is always called from main thread
+            resetSynchronouslyOnUiThread();
         }
 	}
+
+    protected void resetSynchronouslyOnUiThread() {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            m_Loader.reset();
+        } else {
+            FutureTask<Void> task = new FutureTask<Void>(new Runnable() {
+                @Override
+                public void run() {
+                    m_Loader.reset();
+                }
+            }, null);
+            mMainHandler.post(task);
+            try {
+                task.get();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            } catch (ExecutionException e) {
+                e.printStackTrace();
+            }
+        }
+    }
 }

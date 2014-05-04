@@ -16,17 +16,19 @@ import java.util.ArrayList;
 public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
         implements Loader.OnLoadCompleteListener<Result<T>> {
 
-    /* package */ static class ACLForklift<T> {
+    /* package */ static class ACLForklift<T> extends Forklift<Result<T>> {
 
         private AsyncChainLoader<T> m_Loader;
 
         public ACLForklift(AsyncChainLoader<T> loader) {
+            super(loader);
             m_Loader = loader;
         }
 
-        /* package */ Result<T> getSync() throws LoadCancelledException {
+        @Override
+        protected Result<T> getSync() throws LoadCancelledException {
             T ret;
-            m_Loader.reset(); // start fresh TODO: this violates the documented contract that onReset() is always called from main thread
+            resetSynchronouslyOnUiThread();
             try {
                 try {
                     m_Loader.m_State = LOADING_SELF;
@@ -54,7 +56,7 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
             } catch (ChainLoaderException e) {
                 return Result.failure(e);
             } finally {
-                m_Loader.reset(); // leave in a fresh state, too TODO: this violates the documented contract that onReset() is always called from main thread
+                resetSynchronouslyOnUiThread();
             }
         }
     }
