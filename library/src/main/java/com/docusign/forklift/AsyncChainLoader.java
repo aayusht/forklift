@@ -96,6 +96,10 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
         private static final long serialVersionUID = 2596920468208815208L;
     }
 
+    /**
+     * Special case of ChainLoaderException to be thrown during {@link com.docusign.forklift.AsyncChainLoader#loadInBackground()} if this instance cannot return a result.
+     * Must not be thrown if there is no chained loader.
+     */
     protected static final NoResultException NO_RESULT = new NoResultException();
 
     private static final int INITIALIZED 		= 0;
@@ -110,6 +114,11 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
     private int m_State;
     private final Throwable mCreatedLocation;
 
+    /**
+     * Constructor
+     * @param context Context that this loader should be attached to.
+     * @param chain Another loader to process after this one completes its own loading.
+     */
     public AsyncChainLoader(Context context, Loader<Result<T>> chain) {
         super(context);
 
@@ -136,6 +145,7 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 //		super(context);
 //	}
 
+    /** @inheritDoc */
     @Override
     protected void onReset() {
         cancelLoad();
@@ -149,8 +159,9 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
 
         for (AsyncTask<?, ?, ?> task : mFallbackDeliveredTasks)
             task.cancel(false);
-        }
+    }
 
+    /** @inheritDoc */
     @Override
     protected final void onStartLoading() {
         if (m_Data != null)
@@ -169,11 +180,13 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
         m_State++;
     }
 
+    /** @inheritDoc */
     @Override
     protected void onAbandon() {
         cancelLoad();
     }
 
+    /** @inheritDoc */
     @Override
     public void onCanceled(Result<T> data) {
         super.onCanceled(data);
@@ -181,6 +194,7 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
         releaseData(data);
     }
 
+    /** @inheritDoc */
     @Override
     public final void deliverResult(Result<T> data) {
         if (isReset()) {
@@ -201,15 +215,24 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
             performLoad();
     }
 
+    /**
+     *
+     * @param data
+     */
     protected final void releaseData(Result<T> data) {
         if (data != null)
             onReleaseData(data);
     }
 
+    /**
+     *
+     * @param data
+     */
     protected void onReleaseData(Result<T> data) {
 
     }
 
+    /** @inheritDoc */
     @SuppressLint("NewApi")
     @Override
     public final void onLoadComplete(Loader<Result<T>> loader, Result<T> data) {
@@ -224,10 +247,22 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
             mFallbackDeliveredTasks.add(new FallbackDeliveredAsyncTask().executeOnExecutor(FallbackDeliveryExecutor.get(this), data));
     }
 
+    /**
+     * Called when the chained loader returns its result, allowing this loader to operate on the returned data before delivering the result itself.
+     * Will not be called if the chained loader threw an exception during processing or otherwise failed to deliver a result.
+     *
+     * NOTA BENE: This method will never be called on the main thread. If the chained loader returns multiple results, each result is guaranteed
+     * to be delivered to this method one at a time, in the same order as the loader returned them. This method will not block the chained loader.
+     * @param data The result delivered by the chained loader
+     * @param type What type of result this is - a partial result (expect further deliveries to complete the data) or a complete result.
+     * @return The result to deliver to this loader's consumer.
+     * @throws ChainLoaderException If an error occurs while processing the delivered data.
+     */
     protected T onFallbackDelivered(T data, Type type) throws ChainLoaderException {
         return data;
     }
 
+    /** @inheritDoc */
     @Override
     public Result<T> loadInBackground() {
         synchronized (mFallbackDeliveredTasks) {
@@ -259,8 +294,17 @@ public abstract class AsyncChainLoader<T> extends AsyncTaskLoader<Result<T>>
         }
     }
 
+    /**
+     * Performs the work of loading data.
+     * @return The complete data to deliver
+     * @throws ChainLoaderException If an error occurs while loading the data. Can throw NO_RESULT to indicate that processing should fall to the chained loader.
+     */
     public abstract T doLoad() throws ChainLoaderException;
 
+    /**
+     * Retrieves the {@link android.support.v4.content.Loader} that will be processed after this loader completes its own processing.
+     * @return The chained {@link android.support.v4.content.Loader}
+     */
     protected Loader<Result<T>> getChainLoader() {
         return m_Chain;
     }
