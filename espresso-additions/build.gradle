@@ -1,4 +1,4 @@
-apply plugin: 'android-library'
+apply plugin: 'com.android.library'
 
 repositories {
     mavenLocal()
@@ -6,17 +6,16 @@ repositories {
 }
 
 dependencies {
-    compile 'com.android.support:support-v4:+'
-    compile project(':android-test-kit:espresso:lib')
+    compile project(':americano:library')
 }
 
 android {
-    compileSdkVersion 19
+    compileSdkVersion 22
     buildToolsVersion '19.1.0'
 
     defaultConfig {
         minSdkVersion 9
-        targetSdkVersion 19
+        targetSdkVersion 22
     }
 }
 

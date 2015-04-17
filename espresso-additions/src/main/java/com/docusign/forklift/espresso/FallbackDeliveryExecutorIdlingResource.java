@@ -1,6 +1,6 @@
 package com.docusign.forklift.espresso;
 
-import com.google.android.apps.common.testing.ui.espresso.IdlingResource;
+import android.support.test.espresso.IdlingResource;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -8,7 +8,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Created by chris.sarbora on 3/13/14.
+ * @author chris.sarbora
+ * @version 3/13/14
  */
 public class FallbackDeliveryExecutorIdlingResource implements IdlingResource {
     private ThreadPoolExecutor mExecutor;
